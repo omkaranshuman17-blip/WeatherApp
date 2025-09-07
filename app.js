@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -7,71 +7,82 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  TextInput,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
 import axios from 'axios';
 
-const API_KEY = '4TZMBCL9AHM2BNZFCRHXRH9VG';
-const LOCATION = 'Patna,India';
-const BASE_URL = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(
-  LOCATION
-)}/today`;
+const API_KEY = 'f181fc95fa5b6536f549311367652f31';
+const BASE_URL = 'http://api.weatherstack.com/current';
 
 const App = () => {
   const [weatherData, setWeatherData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [location, setLocation] = useState('New York');
 
   const fetchWeather = async () => {
+    if (!location.trim()) {
+      Alert.alert('Error', 'Please enter a location');
+      return;
+    }
     try {
       setLoading(true);
       const response = await axios.get(BASE_URL, {
         params: {
-          unitGroup: 'metric',
-          key: API_KEY,
-          contentType: 'json',
-          include: 'days',
+          access_key: API_KEY,
+          query: location,
+          units: 'm',
         },
       });
 
-      if (response.data && response.data.days && response.data.days.length > 0) {
-        setWeatherData(response.data.days[0]);
+      if (response.data && response.data.current) {
+        setWeatherData(response.data);
       } else {
-        Alert.alert('Error', 'No weather data available');
+        Alert.alert('Error', 'No weather data available for this location');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch weather data');
+      Alert.alert('Error', 'Failed to fetch weather data. Please check your internet connection.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchWeather();
-  }, []);
-
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Patna Weather - Today</Text>
+      <Text style={styles.title}>Weather App</Text>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter city name"
+          value={location}
+          onChangeText={setLocation}
+        />
+        <TouchableOpacity style={styles.button} onPress={fetchWeather}>
+          <Text style={styles.buttonText}>Get Weather</Text>
+        </TouchableOpacity>
+      </View>
       {loading && <ActivityIndicator size="large" color="#007AFF" />}
       {!loading && weatherData && (
         <ScrollView contentContainerStyle={styles.weatherContainer}>
-          <Text style={styles.date}>{weatherData.datetime}</Text>
-          <Text style={styles.temp}>
-            Max: {Math.round(weatherData.tempmax)}°C | Min: {Math.round(weatherData.tempmin)}°C
-          </Text>
-          <Text style={styles.tempCurrent}>Avg Temp: {Math.round(weatherData.temp)}°C</Text>
-          <Text style={styles.description}>{weatherData.conditions}</Text>
+          <Text style={styles.location}>{weatherData.location.name}, {weatherData.location.country}</Text>
+          <Text style={styles.tempCurrent}>{weatherData.current.temperature}°C</Text>
+          <Text style={styles.description}>{weatherData.current.weather_descriptions[0]}</Text>
+          {weatherData.current.weather_icons[0] && (
+            <Image source={{ uri: weatherData.current.weather_icons[0] }} style={styles.weatherIcon} />
+          )}
           <View style={styles.details}>
-            <Text>Humidity: {weatherData.humidity}%</Text>
-            <Text>Precipitation: {weatherData.precip} in</Text>
-            <Text>Wind Speed: {weatherData.windspeed} mph</Text>
-            <Text>UV Index: {weatherData.uvindex}</Text>
-            <Text>Sunrise: {weatherData.sunrise}</Text>
-            <Text>Sunset: {weatherData.sunset}</Text>
+            <Text>Humidity: {weatherData.current.humidity}%</Text>
+            <Text>Precipitation: {weatherData.current.precip} mm</Text>
+            <Text>Wind Speed: {weatherData.current.wind_speed} km/h</Text>
+            <Text>Wind Direction: {weatherData.current.wind_dir}</Text>
+            <Text>Pressure: {weatherData.current.pressure} mb</Text>
+            <Text>Visibility: {weatherData.current.visibility} km</Text>
           </View>
         </ScrollView>
       )}
       {!loading && !weatherData && (
-        <Text style={styles.errorText}>No weather data available.</Text>
+        <Text style={styles.errorText}>Enter a location and tap "Get Weather" to see the forecast.</Text>
       )}
     </SafeAreaView>
   );
@@ -90,21 +101,40 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     color: '#003366',
   },
+  inputContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    marginRight: 10,
+    backgroundColor: '#fff',
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 5,
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   weatherContainer: {
     alignItems: 'center',
   },
-  date: {
-    fontSize: 20,
+  location: {
+    fontSize: 24,
+    fontWeight: '600',
     marginBottom: 10,
     color: '#004080',
   },
-  temp: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 5,
-  },
   tempCurrent: {
-    fontSize: 26,
+    fontSize: 48,
     fontWeight: '700',
     marginBottom: 10,
     color: '#0059b3',
@@ -115,16 +145,22 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textTransform: 'capitalize',
   },
+  weatherIcon: {
+    width: 100,
+    height: 100,
+    marginBottom: 15,
+  },
   details: {
-    width: '80%',
+    width: '90%',
     backgroundColor: '#cce0ff',
     padding: 15,
     borderRadius: 10,
   },
   errorText: {
     textAlign: 'center',
-    color: 'red',
+    color: '#666',
     fontSize: 18,
+    marginTop: 20,
   },
 });
 
